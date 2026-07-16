@@ -527,7 +527,12 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 
 					for (int i = 0; i < results.length(); ++i) {
             		    JSONObject user = results.getJSONObject(i);
-                        ConnectorObject connectorObject = convertUserToConnectorObject(user);
+                        // Fix: Additional user_show on each found user to get correct direct/indirect group data
+                        String jsonUsername = getMultiAsSingleValue(user, ATTR_UID);
+                        JSONArray paramsIndividualShow = new JSONArray();
+                        paramsIndividualShow.put(jsonUsername);
+                        JSONObject userIndividualResult = callRequest(getIpaRequest("user_show", new JSONObject().put("all", true), paramsIndividualShow));
+                        ConnectorObject connectorObject = convertUserToConnectorObject(userIndividualResult.getJSONObject("result").getJSONObject("result"));
                         handler.handle(connectorObject);
             		}
             		if (results.length() == getConfiguration().getSizelimit()){
