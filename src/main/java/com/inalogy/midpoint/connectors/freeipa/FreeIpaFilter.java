@@ -36,7 +36,7 @@ public class FreeIpaFilter {
      * which is correct behaviour (no user has the given `cn` as login).
      */
     public String getLookupKey() {
-        if (byUid != null) return byUid;
+        if (byUid != null) return byUid; // TODO: switch lines 39 and 40, so that correct uid is taken instead of UUID
         if (byName != null) return byName;
         return byCn;
     }

@@ -499,7 +499,7 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 	{
 		try {
             LOG.info("executeQuery on {0}, query: {1}, options: {2}", objectClass, query, options);
-            String lookupKey = (query == null) ? null : query.getLookupKey();
+            String lookupKey = (query == null) ? null : query.getLookupKey();   // TODO: getLookupKey needs to change, so that it searches with the correct parameter, i.e. name not uid (since uid would contain ipauniqueid)
 
             if (objectClass.is(OBJECT_CLASS_USER)) {
                 //find by Login name (uid)
@@ -599,9 +599,9 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
         ConnectorObjectBuilder builder = new ConnectorObjectBuilder();
         ObjectClass objectClass = new ObjectClass(OBJECT_CLASS_USER);
         builder.setObjectClass(objectClass);
-        String uid = getMultiAsSingleValue(user, ATTR_UID);
+        String uid = getMultiAsSingleValue(user, ATTR_UID); //TODO: change ATTR_UID to ATTR_IPAUNIQUEID and set name to ATTR_UID
         builder.setUid(new Uid(uid));
-        builder.setName(new Name(uid));
+        builder.setName(new Name(uid)); //TODO: set uid to name
 
         Iterator<String> keys = user.keys();
 
@@ -612,7 +612,7 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 			if(getConfiguration().getSupportPreserved()){
 				if (key.contains("preserved")) {
 					if (Boolean.TRUE.equals(value)){
-						preserved_user_list.add(uid);
+						preserved_user_list.add(uid); //TODO: change this to name instead of uid
 					}
 				}
 			}
@@ -655,7 +655,7 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 
         ConnectorObject connectorObject = builder.build();
         LOG.ok("convertUserToConnectorObject, user: {0}, \n\tconnectorObject: {1}",
-        		uid, connectorObject);
+        		uid, connectorObject); //TODO: change this also to name for simplicity of reading logs
         return connectorObject;
 	}
 
@@ -703,9 +703,9 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
         ConnectorObjectBuilder builder = new ConnectorObjectBuilder();
         ObjectClass objectClass = new ObjectClass(OBJECT_CLASS_GROUP);
         builder.setObjectClass(objectClass);
-        String uid = getMultiAsSingleValue(group, ATTR_CN);
+        String uid = getMultiAsSingleValue(group, ATTR_CN); // TODO: change ATTR_CN to ATTR_IPAUNIQUEID, and set name to ATTR_CN
         builder.setUid(new Uid(uid));
-        builder.setName(new Name(uid));
+        builder.setName(new Name(uid)); //TODO: set uid to name
 
         Iterator<String> keys = group.keys();
 
@@ -731,7 +731,7 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 
         ConnectorObject connectorObject = builder.build();
         LOG.ok("convertGroupToConnectorObject, group: {0}, \n\tconnectorObject: {1}",
-        		uid, connectorObject);
+        		uid, connectorObject); //TODO: change this also to name for simplicity of reading logs
         return connectorObject;
 	}
 
@@ -889,7 +889,7 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 	        LOG.info("response after set krbpasswordexpiration UID: {0}, body: {1}", icfsName, jores);
         }
 
-        return new Uid(icfsName);
+        return new Uid(icfsName); // TODO: instead of icfsname use the actual ipauniqueid, extract ipauniqueid out of response from request
     }
 
 	@Override
@@ -908,7 +908,7 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 			throw new UnsupportedOperationException("Unsupported object class " + objectClass);
 		}
 	}
-
+    // no-TODO: since Role gets as UID its name, nothing to change here
 	private void updateDeltaRole(Uid uid, Set<AttributeDelta> modifications) {
 		LOG.ok("updateDeltaRole, Uid: {0}, deltas: {1}", uid, modifications);
 		if (modifications == null || modifications.isEmpty()) {
@@ -991,8 +991,11 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 		}
 	}
 
+    //TODO: add here function that retrieves name of object when given a ipauniqueid
+
 	private void updateDeltaUser(Uid uid, Set<AttributeDelta> modifications) {
-		LOG.ok("updateDeltaUser, Uid: {0}", uid);
+        // TODO: somehow try to obtain name (user_find on ipauniqueid?), so that you can use API -> do separate function, so that it can be reused
+        LOG.ok("updateDeltaUser, Uid: {0}", uid); //TODO: use actual name instead
 		if (modifications == null || modifications.isEmpty()) {
 			LOG.ok("request ignored, empty attributes");
 			return;
@@ -1001,7 +1004,7 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 
 		JSONObject currentUser = callRequest(
 				getIpaRequest("user_show", new JSONObject().put("all", true), new JSONArray().put(uid.getUidValue()))
-		).getJSONObject("result").getJSONObject("result");
+		).getJSONObject("result").getJSONObject("result"); // TODO: use name to do API call
 
 		for (AttributeDelta attributeDelta: modifications) {
 			if (attributeDelta.getValuesToAdd() != null || attributeDelta.getValuesToRemove() != null) {
@@ -1054,7 +1057,7 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 		JSONObject params = new JSONObject();
 		String loginNew = getStringAttr(attributes, Name.NAME); //old or new login to rename
 		if (StringUtil.isBlank(loginNew)) {
-			loginNew = uid.getUidValue();
+			loginNew = uid.getUidValue(); //TODO: use name instead
 		}
 		final List<String> passwordList = new ArrayList<String>(1);
 		GuardedString guardedPassword = getAttr(attributes, OperationalAttributeInfos.PASSWORD.getName(), GuardedString.class);
@@ -1104,21 +1107,21 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 			}
 		}
 
-		if (!uid.getUidValue().equals(loginNew)) {
+		if (!uid.getUidValue().equals(loginNew)) { //TODO: use name instead of uid
 			params.put(ATTR_RENAME, loginNew); // rename user, https://www.redhat.com/archives/freeipa-users/2014-March/msg00072.html
 		}
 
 		JSONArray params_array = new JSONArray();
-		params_array.put(uid.getUidValue());
+		params_array.put(uid.getUidValue()); //TODO: use name instead
 		//if we support preserved accounts, undelete before anything else
 		if ( getConfiguration().getSupportPreserved() ){
-			if (preserved_user_list.contains(loginNew)){
+			if (preserved_user_list.contains(loginNew)){ // TODO BUG?: shouldn't it look whether the old loginname is in the list??? The user has not been renamed yet...
 				JSONObject undelrequest = getIpaRequest("user_undel" , new JSONObject(), params_array);
 				try{
 					JSONObject undeljores = callRequest(undelrequest);
-					LOG.info("response after set user_undel UID: {0}, body: {1}", loginNew, undeljores);
+					LOG.info("response after set user_undel UID: {0}, body: {1}", loginNew, undeljores); //TODO: for consistency this should probably also be the old login
 				} catch (Exception all_ex){
-					LOG.error("Error running undel, user doesn't exist? Error: {0}", all_ex);
+					LOG.error("Error running undel, user doesn't exist? Error: {0}", all_ex); // TODO BUG?: again, shouldn't this be the old login name???
 				}
 				preserved_user_list.remove(loginNew);
 			}
@@ -1136,8 +1139,8 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 			JSONObject jores;
 			try {
 				jores = callRequest(request);
-				LOG.info("response UID: {0}, body: {1}", loginNew, jores);
-			} catch (AlreadyExistsException e) {
+				LOG.info("response UID: {0}, body: {1}", loginNew, jores); // no-TODO: probably fine depends on whether we want to log the old or the new username, we could also print both in case of rename
+			} catch (AlreadyExistsException e) { // no-TODO: this entire catch block does not make sense, as an already existing user, would not fail on user_mod (copy+paste error), especially trying again would not help
 				//shadow deleted, but account still available on resource - not a likely scenario in prod env
 				request = getIpaRequest("user_mod" , params, params_array);
 				jores = callRequest(request);
@@ -1145,6 +1148,7 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 			}
 		}
 
+        //TODO: do we have to check whether the renaming actually worked, before we try handling the new loginname???
 		handleEnable(attributes, loginNew, false);
 		handleRoles(attributes, loginNew, false);
 		handleGroups(attributes, loginNew, false);
@@ -1155,11 +1159,11 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 			paramsExp.put(ATTR_KRBPASSWORDEXPIRATION, krbPasswordExpiration);
 
 			JSONArray params_arrayExp = new JSONArray();
-			params_arrayExp.put(uid.getUidValue());
+			params_arrayExp.put(uid.getUidValue()); //TODO: use... well what should you actually use?... if loginname would have been set new above... would it not have to be the new loginname?
 
 			JSONObject requestExp = getIpaRequest("user_mod", paramsExp, params_arrayExp);
 			JSONObject jores = callRequest(requestExp);
-			LOG.info("response after set krbpasswordexpiration UID: {0}, body: {1}", loginNew, jores);
+			LOG.info("response after set krbpasswordexpiration UID: {0}, body: {1}", loginNew, jores); // no-TODO: this is actually fine, as long as renaming worked
 		}
 
 	}
@@ -1189,7 +1193,7 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
     }
 
 	private Uid createGroup(Set<Attribute> attributes) {
-        LOG.ok("createGroup, Uid: {0}, attributes: {1}",attributes);
+        LOG.ok("createGroup, Uid: {0}, attributes: {1}",attributes); // no-TODO: bin ich blöd?, das sind doch gar keine zwei Parameter
         JSONObject params = new JSONObject();
         String icfsName = getStringAttr(attributes, Name.NAME); //old or new login to rename
 
@@ -1234,13 +1238,14 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 	        LOG.info("response UID: {0}, body: {1}", icfsName, jores);
         }
 
-        return new Uid(icfsName);
+        return new Uid(icfsName); // TODO: extract ipauniqueid from jores and return that instead
     }
 
 	private void updateDeltaGroup(Uid uid, Set<AttributeDelta> modifications) {
-		LOG.ok("updateDeltaGroup, Uid: {0}, deltas: {1}", uid, modifications);
+        // TODO: as in updateDeltaUser, retrieve name from uid
+		LOG.ok("updateDeltaGroup, Uid: {0}, deltas: {1}", uid, modifications); // TODO: use name for readability
 
-		if (modifications == null || modifications.isEmpty()) {
+        if (modifications == null || modifications.isEmpty()) {
 			LOG.ok("request ignored, empty modifications");
 			return;
 		}
@@ -1248,7 +1253,7 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 		Set<Attribute> attributes = new HashSet<>();
 		JSONObject currentGroup = callRequest(
 				getIpaRequest("group_show", new JSONObject().put("all", true), new JSONArray().put(uid.getUidValue()))
-		).getJSONObject("result").getJSONObject("result");
+		).getJSONObject("result").getJSONObject("result"); //TODO: use name instead
 
 		for (AttributeDelta delta : modifications) {
 			String attrName = delta.getName();
@@ -1299,7 +1304,7 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 		JSONObject params = new JSONObject();
 		String groupNameNew = getStringAttr(attributes, Name.NAME);
 		if (StringUtil.isBlank(groupNameNew)) {
-			groupNameNew = uid.getUidValue();
+			groupNameNew = uid.getUidValue(); // TODO: use name instead
 		}
 
 		for (Attribute attr : attributes) {
@@ -1327,19 +1332,19 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 		}
 
 		// Handle rename if NAME changed
-		if (!uid.getUidValue().equals(groupNameNew)) {
+		if (!uid.getUidValue().equals(groupNameNew)) { //TODO: use name instead
 			params.put(ATTR_RENAME, groupNameNew);
-			LOG.ok("Renaming group from {0} to {1}", uid.getUidValue(), groupNameNew);
+			LOG.ok("Renaming group from {0} to {1}", uid.getUidValue(), groupNameNew); // TODO: use name instead for readability
 		}
 
-		JSONArray params_array = new JSONArray().put(uid.getUidValue());
+		JSONArray params_array = new JSONArray().put(uid.getUidValue()); //TODO: use name instead
 		JSONObject request = getIpaRequest("group_mod", params, params_array);
 
 		LOG.ok("Group update request: {0}", request.toString());
 
 		if (!params.isEmpty()) {
 			JSONObject response = callRequest(request);
-			LOG.info("Group updated: {0}, response: {1}", groupNameNew, response);
+			LOG.info("Group updated: {0}, response: {1}", groupNameNew, response); //no-TODO: this is fine
 		}
 	}
 
@@ -1491,20 +1496,21 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 
 	@Override
 	public void delete(ObjectClass objectClass, Uid uid, OperationOptions options) {
+        // TODO: retrieve name from uid (is user or group)
 		if (objectClass.is(OBJECT_CLASS_USER)) {
 			// TODO also preserve=true & user_undel?
-            LOG.ok("delete user, Uid: {0}", uid);
+            LOG.ok("delete user, Uid: {0}", uid); // TODO: use name instead for readability
             JSONArray params_array = new JSONArray();
-            params_array.put(uid.getUidValue());
+            params_array.put(uid.getUidValue()); // TODO: use name instead
 			// updated to support preserved accounts
 			JSONObject pparams = new JSONObject();
 			if (getConfiguration().getSupportPreserved()) {
-				LOG.ok("preserve user, Uid: {0}", uid);
+				LOG.ok("preserve user, Uid: {0}", uid); // TODO: use name instead for readability
 				pparams.put("preserve", true);
 			}
 			JSONObject request = getIpaRequest("user_del", pparams, params_array);
     		JSONObject jores = callRequest(request);
-            LOG.info("response body: {0} for user deletion for uid: ", jores, uid);
+            LOG.info("response body: {0} for user deletion for uid: ", jores, uid); // TODO: use name instead for readability
 		} else if (objectClass.is(OBJECT_CLASS_ROLE)) {
             LOG.ok("delete role, Uid: {0}", uid);
             JSONArray params_array = new JSONArray();
@@ -1513,12 +1519,12 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
     		JSONObject jores = callRequest(request);
             LOG.info("response body: {0} for role deletion for uid: ", jores, uid);
 		} else if (objectClass.is(OBJECT_CLASS_GROUP)) {
-            LOG.ok("delete group, Uid: {0}", uid);
+            LOG.ok("delete group, Uid: {0}", uid); // TODO: use name instead for readability
             JSONArray params_array = new JSONArray();
-            params_array.put(uid.getUidValue());
+            params_array.put(uid.getUidValue()); //TODO: use name instead
     		JSONObject request = getIpaRequest("group_del", new JSONObject(), params_array);
     		JSONObject jores = callRequest(request);
-            LOG.info("response body: {0} for group deletion for uid: ", jores, uid);
+            LOG.info("response body: {0} for group deletion for uid: ", jores, uid); // TODO: use name instead for readability
         } else {
             // not found
             throw new UnsupportedOperationException("Unsupported object class " + objectClass);
