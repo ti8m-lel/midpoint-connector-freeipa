@@ -908,7 +908,7 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 			throw new UnsupportedOperationException("Unsupported object class " + objectClass);
 		}
 	}
-    // no-TODO: since Role gets as UID its name, nothing to change here
+
 	private void updateDeltaRole(Uid uid, Set<AttributeDelta> modifications) {
 		LOG.ok("updateDeltaRole, Uid: {0}, deltas: {1}", uid, modifications);
 		if (modifications == null || modifications.isEmpty()) {
@@ -1114,16 +1114,16 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 		JSONArray params_array = new JSONArray();
 		params_array.put(uid.getUidValue()); //TODO: use name instead
 		//if we support preserved accounts, undelete before anything else
-		if ( getConfiguration().getSupportPreserved() ){
-			if (preserved_user_list.contains(loginNew)){ // TODO BUG?: shouldn't it look whether the old loginname is in the list??? The user has not been renamed yet...
+		if ( getConfiguration().getSupportPreserved() ){ // Fix: use the old uid value instead of loginNew, as old login name should be in preserver_user_list
+			if (preserved_user_list.contains(uid.getUidValue())){ // TODO: use name instead of uid
 				JSONObject undelrequest = getIpaRequest("user_undel" , new JSONObject(), params_array);
 				try{
 					JSONObject undeljores = callRequest(undelrequest);
-					LOG.info("response after set user_undel UID: {0}, body: {1}", loginNew, undeljores); //TODO: for consistency this should probably also be the old login
+					LOG.info("response after set user_undel UID: {0}, body: {1}", uid.getUidValue(), undeljores); // TODO: use name instead of uid
 				} catch (Exception all_ex){
-					LOG.error("Error running undel, user doesn't exist? Error: {0}", all_ex); // TODO BUG?: again, shouldn't this be the old login name???
+					LOG.error("Error running undel, user doesn't exist? Error: {0}", all_ex);
 				}
-				preserved_user_list.remove(loginNew);
+				preserved_user_list.remove(uid.getUidValue());// TODO: use name instead of uid
 			}
 		}
 
@@ -1139,8 +1139,8 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 			JSONObject jores;
 			try {
 				jores = callRequest(request);
-				LOG.info("response UID: {0}, body: {1}", loginNew, jores); // no-TODO: probably fine depends on whether we want to log the old or the new username, we could also print both in case of rename
-			} catch (AlreadyExistsException e) { // no-TODO: this entire catch block does not make sense, as an already existing user, would not fail on user_mod (copy+paste error), especially trying again would not help
+				LOG.info("response UID: {0}, body: {1}", loginNew, jores); // TODO: additionally use name to potential log rename
+			} catch (AlreadyExistsException e) {
 				//shadow deleted, but account still available on resource - not a likely scenario in prod env
 				request = getIpaRequest("user_mod" , params, params_array);
 				jores = callRequest(request);
@@ -1148,7 +1148,6 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 			}
 		}
 
-        //TODO: do we have to check whether the renaming actually worked, before we try handling the new loginname???
 		handleEnable(attributes, loginNew, false);
 		handleRoles(attributes, loginNew, false);
 		handleGroups(attributes, loginNew, false);
@@ -1159,11 +1158,11 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 			paramsExp.put(ATTR_KRBPASSWORDEXPIRATION, krbPasswordExpiration);
 
 			JSONArray params_arrayExp = new JSONArray();
-			params_arrayExp.put(uid.getUidValue()); //TODO: use... well what should you actually use?... if loginname would have been set new above... would it not have to be the new loginname?
+			params_arrayExp.put(loginNew); // Fix: use loginNew instead of potentially already outdated (via rename) uid value
 
 			JSONObject requestExp = getIpaRequest("user_mod", paramsExp, params_arrayExp);
 			JSONObject jores = callRequest(requestExp);
-			LOG.info("response after set krbpasswordexpiration UID: {0}, body: {1}", loginNew, jores); // no-TODO: this is actually fine, as long as renaming worked
+			LOG.info("response after set krbpasswordexpiration UID: {0}, body: {1}", loginNew, jores);
 		}
 
 	}
@@ -1193,7 +1192,7 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
     }
 
 	private Uid createGroup(Set<Attribute> attributes) {
-        LOG.ok("createGroup, Uid: {0}, attributes: {1}",attributes); // no-TODO: bin ich blöd?, das sind doch gar keine zwei Parameter
+        LOG.ok("createGroup, Uid: {0}, attributes: {1}",attributes);
         JSONObject params = new JSONObject();
         String icfsName = getStringAttr(attributes, Name.NAME); //old or new login to rename
 
@@ -1344,7 +1343,7 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 
 		if (!params.isEmpty()) {
 			JSONObject response = callRequest(request);
-			LOG.info("Group updated: {0}, response: {1}", groupNameNew, response); //no-TODO: this is fine
+			LOG.info("Group updated: {0}, response: {1}", groupNameNew, response);
 		}
 	}
 
