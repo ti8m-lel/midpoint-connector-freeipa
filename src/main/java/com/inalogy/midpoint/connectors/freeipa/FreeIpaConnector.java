@@ -275,6 +275,7 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 		    		JSONObject jsonParam = jsonParams.getJSONObject(p);
 
 		    		Boolean required = jsonParam.has("required") ? jsonParam.getBoolean("required") : true; //default is true
+                    required = required && !jsonParam.getString("name").startsWith("membermanager_"); // Fix: membermanager_* attributes are read-only attributes and thus never required as input
 		    		String type = jsonParam.getString("type"); // Principal, datetime, Certificate,  ... str, bool, int
 
 		    		Boolean multivalue = jsonParam.has("multivalue") ? jsonParam.getBoolean("multivalue") : false; //default is false
