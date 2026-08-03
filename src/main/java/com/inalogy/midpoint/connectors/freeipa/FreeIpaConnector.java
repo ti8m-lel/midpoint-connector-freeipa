@@ -504,8 +504,8 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 
             if (objectClass.is(OBJECT_CLASS_USER)) {
                 //find by Login name (uid)
-                lookupKey = getUidFromUuid(OBJECT_CLASS_USER, new Uid(lookupKey)); // UUID integration: query IPA uid not uuid
                 if (lookupKey != null) {
+                    lookupKey = getUidFromUuid(OBJECT_CLASS_USER, new Uid(lookupKey)); // UUID integration: query IPA uid not uuid
                 	JSONArray params = new JSONArray();
                 	params.put(lookupKey);
                 	JSONObject user = callRequest(getIpaRequest("user_show", new JSONObject().put("all", true), params));
@@ -567,8 +567,8 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
             }
             else if (objectClass.is(OBJECT_CLASS_GROUP)) {
                 //find by group name (uid)
-                lookupKey = getUidFromUuid(OBJECT_CLASS_GROUP, new Uid(lookupKey));
                 if (lookupKey != null) {
+                    lookupKey = getUidFromUuid(OBJECT_CLASS_GROUP, new Uid(lookupKey)); // UUID integration: query IPA uid not uuid
                 	JSONArray params = new JSONArray();
                 	params.put(lookupKey);
                 	JSONObject group = callRequest(getIpaRequest("group_show", new JSONObject().put("all", true), params));
@@ -1006,23 +1006,42 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 
     //UUID integration: add function retrieving uid (name) from ipauniqueid
     private String getUidFromUuid(String objectclass, Uid uid) {
-        String name = null;
-        if (objectclass.equals(OBJECT_CLASS_USER)) {
-            JSONObject params = new JSONObject();
-            params.put(ATTR_IPAUNIQUEID, uid.getUidValue());
-            JSONObject users = callRequest(getIpaRequest("user_find", params, new JSONArray()));
-            JSONArray results = users.getJSONObject("result").getJSONArray("result");
-            name = results.getJSONObject(0).getJSONArray(ATTR_UID).getString(0);
-            return name;
-        } else if (objectclass.equals(OBJECT_CLASS_GROUP)) {
-            JSONObject params = new JSONObject();
-            params.put(ATTR_IPAUNIQUEID, uid.getUidValue());
-            JSONObject users = callRequest(getIpaRequest("group_find", params, new JSONArray()));
-            JSONArray results = users.getJSONObject("result").getJSONArray("result");
-            name = results.getJSONObject(0).getJSONArray(ATTR_CN).getString(0);
-            return name;
+        if (uid == null || StringUtil.isBlank(uid.getUidValue())) {
+            return null;
         }
-        return name;
+        String targetUuid = uid.getUidValue();
+
+        if (objectclass.equals(OBJECT_CLASS_USER)) {
+            JSONObject users = callRequest(getIpaRequest("user_find",
+                new JSONObject().put("all", true), new JSONArray()));
+            JSONArray results = users.getJSONObject("result").getJSONArray("result");
+            for (int i = 0; i < results.length(); i++) {
+                JSONObject user = results.getJSONObject(i);
+                if (user.has(ATTR_IPAUNIQUEID)) {
+                    String uuid = user.getJSONArray(ATTR_IPAUNIQUEID).getString(0);
+                    if (targetUuid.equals(uuid)) {
+                        return user.getJSONArray(ATTR_UID).getString(0);
+                    }
+                }
+            }
+            return null;
+
+        } else if (objectclass.equals(OBJECT_CLASS_GROUP)) {
+            JSONObject groups = callRequest(getIpaRequest("group_find",
+                new JSONObject().put("all", true), new JSONArray()));
+            JSONArray results = groups.getJSONObject("result").getJSONArray("result");
+            for (int i = 0; i < results.length(); i++) {
+                JSONObject group = results.getJSONObject(i);
+                if (group.has(ATTR_IPAUNIQUEID)) {
+                    String uuid = group.getJSONArray(ATTR_IPAUNIQUEID).getString(0);
+                    if (targetUuid.equals(uuid)) {
+                        return group.getJSONArray(ATTR_CN).getString(0);
+                    }
+                }
+            }
+            return null;
+        }
+        return null;
     }
 
 	private void updateDeltaUser(Uid uid, Set<AttributeDelta> modifications) {
