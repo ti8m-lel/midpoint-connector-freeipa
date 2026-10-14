@@ -121,7 +121,7 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 	public static final String ATTR_IPANTHASH = "ipanthash"; // freeradius
 	public static final String ATTR_IPANTHOMEDIRECTORYDRIVE = "ipanthomedirectorydrive";
 
-    public static String COOKIE_VALUE = null;
+    private String COOKIE_VALUE = null;
 
 	public static final String ATTR_NOPRIVATE = "noprivate";
 	public static final String ATTR_GIDNUMBER = "gidnumber";
@@ -147,6 +147,7 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
         LOG.info("Initializing {0} connector instance {1}", this.getClass().getSimpleName(), this);
     	super.init(configuration);
         // log in as post over HTTPS, Password Authentication see: https://vda.li/en/posts/2015/05/28/talking-to-freeipa-api-with-sessions/
+        login();
     }
 
     @Override
@@ -429,7 +430,7 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
         request.setEntity(entity);
         CloseableHttpResponse response = execute(request);
         if (response.getCode()==401){
-            LOG.warn("401 - no cookie detected need to connect");
+            LOG.ok("401 - Cookie expired mid-session, re-authenticating");
             boolean logged= login();
             if (logged){
                 closeResponse(response);
@@ -505,9 +506,16 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
             if (objectClass.is(OBJECT_CLASS_USER)) {
                 //find by Login name (uid)
                 if (lookupKey != null) {
-                    lookupKey = getUidFromUuid(OBJECT_CLASS_USER, new Uid(lookupKey)); // UUID integration: query IPA uid not uuid
+                    String ipaname = getUidFromUuid(OBJECT_CLASS_USER, new Uid(lookupKey)); // UUID integration: query IPA uid not uuid
+
+                    if (ipaname == null) {
+                        // Account gone from IPA - returning nothing signals deletion to midPoint
+                        LOG.warn("No IPA user found for UUID {0}, returning empty result", lookupKey);
+                        return; // ← this is the key change
+                    }
+
                 	JSONArray params = new JSONArray();
-                	params.put(lookupKey);
+                	params.put(ipaname);
                 	JSONObject user = callRequest(getIpaRequest("user_show", new JSONObject().put("all", true), params));
 //                	JSONObject status = callRequest(getIpaRequest("user_status", params));
                     ConnectorObject connectorObject = convertUserToConnectorObject(user.getJSONObject("result").getJSONObject("result"));
@@ -568,9 +576,16 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
             else if (objectClass.is(OBJECT_CLASS_GROUP)) {
                 //find by group name (uid)
                 if (lookupKey != null) {
-                    lookupKey = getUidFromUuid(OBJECT_CLASS_GROUP, new Uid(lookupKey)); // UUID integration: query IPA uid not uuid
-                	JSONArray params = new JSONArray();
-                	params.put(lookupKey);
+                    String ipaname = getUidFromUuid(OBJECT_CLASS_GROUP, new Uid(lookupKey)); // UUID integration: query IPA uid not uuid
+
+                    if (ipaname == null) {
+                        // Account gone from IPA - returning nothing signals deletion to midPoint
+                        LOG.warn("No IPA group found for UUID {0}, returning empty result", lookupKey);
+                        return; // ← this is the key change
+                    }
+
+                    JSONArray params = new JSONArray();
+                	params.put(ipaname);
                 	JSONObject group = callRequest(getIpaRequest("group_show", new JSONObject().put("all", true), params));
                     ConnectorObject connectorObject = convertGroupToConnectorObject(group.getJSONObject("result").getJSONObject("result"));
                     handler.handle(connectorObject);
