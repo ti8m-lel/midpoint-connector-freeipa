@@ -1330,6 +1330,11 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 		for (AttributeDelta delta : modifications) {
 			String attrName = delta.getName();
 
+            // Skip member_user here — handled separately below via group_add_member / group_remove_member.
+            if (ATTR_MEMBER_USER.equals(attrName)) {
+                continue;
+            }
+
 			// Handle multi-valued add/remove
 			if ((delta.getValuesToAdd() != null || delta.getValuesToRemove() != null)) {
 
@@ -1418,6 +1423,51 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 			JSONObject response = callRequest(request);
 			LOG.info("Group updated: {0}, response: {1}", groupNameNew, response);
 		}
+
+        // Handle member_user changes via group_add_member / group_remove_member
+        for (AttributeDelta delta : modifications) {
+            if (!ATTR_MEMBER_USER.equals(delta.getName())) {
+                continue;
+            }
+
+            if (delta.getValuesToAdd() != null) {
+                for (Object user : delta.getValuesToAdd()) {
+                    LOG.ok("Adding user {0} to group {1}", user, groupNameNew);
+                    addRemoveMember("group_add_member", (String) user, groupNameNew);
+                }
+            }
+
+            if (delta.getValuesToRemove() != null) {
+                for (Object user : delta.getValuesToRemove()) {
+                    LOG.ok("Removing user {0} from group {1}", user, groupNameNew);
+                    addRemoveMember("group_remove_member", (String) user, groupNameNew);
+                }
+            }
+
+            // Full replace: diff desired state against current members from the snapshot taken before group_mod.
+            if (delta.getValuesToReplace() != null) {
+                List<Object> desired = new ArrayList<>(delta.getValuesToReplace());
+                List<String> current = new ArrayList<>();
+                if (currentGroup.has(ATTR_MEMBER_USER)) {
+                    JSONArray existing = currentGroup.getJSONArray(ATTR_MEMBER_USER);
+                    for (int i = 0; i < existing.length(); i++) {
+                        current.add(existing.getString(i));
+                    }
+                }
+                for (Object user : desired) {
+                    if (!current.contains(user)) {
+                        LOG.ok("Adding user {0} to group {1} (replace)", user, groupNameNew);
+                        addRemoveMember("group_add_member", (String) user, groupNameNew);
+                    }
+                }
+                for (String user : current) {
+                    if (!desired.contains(user)) {
+                        LOG.ok("Removing user {0} from group {1} (replace)", user, groupNameNew);
+                        addRemoveMember("group_remove_member", user, groupNameNew);
+                    }
+                }
+            }
+        }
 	}
 
 
