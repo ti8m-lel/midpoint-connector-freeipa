@@ -115,6 +115,7 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 	public static final String ATTR_KRBLOGINFAILEDCOUNT = "krbloginfailedcount";
 	public static final String ATTR_KRBEXTRADATA = "krbextradata";
 	public static final String ATTR_KRBLASTPWDCHANGE = "krblastpwdchange";
+    public static final String ATTR_KRBLASTSUCCESSFULAUTH = "krblastsuccessfulauth";
 	public static final String ATTR_KRBLASTFAILEDAUTH = "krblastfailedauth";
 	public static final String ATTR_IPANTSECURITYIDENTIFIER = "ipantsecurityidentifier";
 	public static final String ATTR_KRBTICKETFLAGS = "krbticketflags";
@@ -364,6 +365,9 @@ public class FreeIpaConnector extends AbstractRestConnector<FreeIpaConfiguration
 
 			AttributeInfoBuilder attrKrbLastPwdChangeBuilder = new AttributeInfoBuilder(ATTR_KRBLASTPWDCHANGE); // missing from schema (workaround)
 	        objClassBuilder.addAttributeInfo(attrKrbLastPwdChangeBuilder.build());
+
+            AttributeInfoBuilder attrKrbLastSuccessfulAuthBuilder = new AttributeInfoBuilder(ATTR_KRBLASTSUCCESSFULAUTH); // missing from schema (workaround)
+            objClassBuilder.addAttributeInfo(attrKrbLastSuccessfulAuthBuilder.build());
 
 			AttributeInfoBuilder attrKrbLastFailedAuthBuilder = new AttributeInfoBuilder(ATTR_KRBLASTFAILEDAUTH); // missing from schema (workaround)
 	        objClassBuilder.addAttributeInfo(attrKrbLastFailedAuthBuilder.build());
